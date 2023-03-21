@@ -22,11 +22,10 @@ export function tokenizer(str: string) {
 
         char = str[++current];
 
+        // todo
+        // fix this: when properties string include "/" or ">"
         while (char !== '>') {
-          if (/\s/.test(char)) {
-            char = str[++current];
-            continue;
-          } else if (char === '/') {
+          if (char === '/') {
             const nextChar = str[current + 1];
             if (nextChar === '>') {
               status.isSelfClosing = true;
@@ -42,15 +41,38 @@ export function tokenizer(str: string) {
           }
         }
 
+        const [name, ...props] = value
+          .trim()
+          .split(' ')
+          .filter(item => item !== '');
+
+        const properties = Object.fromEntries(
+          props.map(entries => {
+            if (/[^"]+="/.test(entries)) {
+              const result = /^([^"]+)="([\S\s]+)"/.exec(entries);
+              if (result) {
+                const [_, name, value] = result;
+                return [name, value];
+              }
+
+              throw new Error('regexp match error' + entries);
+            } else {
+              return [entries, 'true'];
+            }
+          })
+        );
+
         if (status.isSelfClosing) {
           tokens.push({
             type: 'SelfClosingTag',
-            value,
+            value: name,
+            properties,
           });
         } else if (!status.isEndMark) {
           tokens.push({
             type: 'StartTag',
             value,
+            properties,
           });
         } else {
           tokens.push({
